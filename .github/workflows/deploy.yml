@@ -1,0 +1,59 @@
+---
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente alvo
+        type: choice
+        options: [hml, prod]
+        default: hml
+      mode:
+        description: "check = dry-run (--check --diff) | apply = executa de verdade"
+        type: choice
+        options: [check, apply]
+        default: check
+      cleanup_old_logs:
+        description: Remover logs antigos de /srv/data/log (só vale com apply)
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Em Settings > Environments > prod, ative "Required reviewers" para exigir aprovação
+    environment: ${{ inputs.environment }}
+    env:
+      TARGET_ENV: ${{ inputs.environment }}
+      MODE: ${{ inputs.mode }}
+      CLEANUP: ${{ inputs.cleanup_old_logs }}
+      KITANDA_HOST: ${{ secrets.KITANDA_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Configurar SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Executar playbook
+        run: |
+          ARGS=""
+          if [ "$MODE" = "check" ]; then
+            ARGS="--check --diff"
+          elif [ "$CLEANUP" = "true" ]; then
+            ARGS="-e kitanda_logs_cleanup_old=true"
+          fi
+          ansible-playbook -i "inventories/${TARGET_ENV}/hosts.yml" playbooks/site.yml \
+            --private-key ~/.ssh/id_ed25519 $ARGS

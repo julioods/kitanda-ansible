@@ -1,0 +1,26 @@
+---
+# DESTRUTIVO. Só roda com kitanda_logs_cleanup_old=true e após a validação.
+- name: Verificar marcador de migração
+  ansible.builtin.stat:
+    path: "{{ kitanda_logs_dir }}/.migrated"
+  register: kitanda_logs_marker
+
+- name: Recusar limpeza sem migração confirmada
+  ansible.builtin.assert:
+    that: kitanda_logs_marker.stat.exists
+    fail_msg: "Marcador .migrated ausente: limpeza recusada para evitar perda de logs"
+
+- name: Listar conteúdo antigo
+  ansible.builtin.find:
+    paths: "{{ kitanda_logs_old_dir }}"
+    file_type: any
+    patterns: "*"
+  register: kitanda_logs_old_entries
+
+- name: Remover conteúdo antigo (mantém o diretório)
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ kitanda_logs_old_entries.files }}"
+  loop_control:
+    label: "{{ item.path }}"

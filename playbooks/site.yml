@@ -1,0 +1,7 @@
+---
+- name: Kitanda - mover logs para fora de /srv/data
+  hosts: kitanda_app
+  become: true
+  gather_facts: false
+  roles:
+    - kitanda_logs

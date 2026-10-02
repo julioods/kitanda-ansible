@@ -1,0 +1,22 @@
+# Gerenciado pelo Ansible (role kitanda_logs)
+{{ kitanda_logs_dir }}/*.log {
+    daily
+    rotate {{ kitanda_logs_rotate_keep }}
+    compress
+    missingok
+    notifempty
+    create 0640
+}
+
+{{ kitanda_logs_dir }}/nginx/*.log {
+    daily
+    rotate {{ kitanda_logs_rotate_keep }}
+    compress
+    missingok
+    notifempty
+    create 0640
+    sharedscripts
+    postrotate
+        docker exec {{ kitanda_logs_nginx_container }} nginx -s reopen >/dev/null 2>&1 || true
+    endscript
+}

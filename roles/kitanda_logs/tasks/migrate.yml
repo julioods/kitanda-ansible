@@ -1,0 +1,25 @@
+---
+- name: Procurar logs no caminho antigo
+  ansible.builtin.find:
+    paths: "{{ kitanda_logs_old_dir }}"
+    recurse: true
+    file_type: file
+  register: kitanda_logs_old_files
+
+- name: Copiar logs preservando atributos
+  ansible.builtin.command:
+    cmd: "cp -a {{ kitanda_logs_old_dir }}/. {{ kitanda_logs_dir }}/"
+    creates: "{{ kitanda_logs_dir }}/.migrated"
+  register: kitanda_logs_copy
+  when: kitanda_logs_old_files.matched > 0
+
+- name: Marcar migração concluída
+  ansible.builtin.file:
+    path: "{{ kitanda_logs_dir }}/.migrated"
+    state: touch
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+  when:
+    - kitanda_logs_old_files.matched > 0
+    - kitanda_logs_copy is changed

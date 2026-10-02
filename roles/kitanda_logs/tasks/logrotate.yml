@@ -1,0 +1,9 @@
+---
+- name: Instalar configuração do logrotate
+  ansible.builtin.template:
+    src: logrotate-kitanda.j2
+    dest: /etc/logrotate.d/kitanda
+    owner: root
+    group: root
+    mode: "0644"
+    validate: logrotate -d %s

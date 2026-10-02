@@ -1,0 +1,5 @@
+---
+# Overrides por ambiente (defaults em roles/kitanda_logs/defaults/main.yml)
+# kitanda_logs_compose_dir: /opt/kitanda
+# kitanda_logs_rotate_keep: 3
+# kitanda_logs_promtail_config: /opt/kitanda/promtail/config.yml

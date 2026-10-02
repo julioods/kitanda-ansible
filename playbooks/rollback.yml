@@ -1,0 +1,10 @@
+---
+- name: Kitanda - rollback da configuração do Compose
+  hosts: kitanda_app
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Executar rollback
+      ansible.builtin.include_role:
+        name: kitanda_logs
+        tasks_from: rollback

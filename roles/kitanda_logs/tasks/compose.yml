@@ -1,0 +1,39 @@
+---
+- name: Backup do compose (não sobrescreve backup existente)
+  ansible.builtin.copy:
+    src: "{{ kitanda_logs_compose_dir }}/{{ kitanda_logs_compose_file }}"
+    dest: "{{ kitanda_logs_compose_dir }}/{{ kitanda_logs_compose_file }}.bkp"
+    remote_src: true
+    force: false
+    mode: preserve
+
+- name: Ajustar bind mounts (somente o lado do host)
+  ansible.builtin.replace:
+    path: "{{ kitanda_logs_compose_dir }}/{{ kitanda_logs_compose_file }}"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop:
+    - regexp: '^(\s*)- {{ kitanda_logs_old_dir }}/nginx:/var/log/nginx[ \t]*$'
+      replace: '\1- {{ kitanda_logs_dir }}/nginx:/var/log/nginx'
+    - regexp: '^(\s*)- {{ kitanda_logs_old_dir }}:{{ kitanda_logs_old_dir }}:ro[ \t]*$'
+      replace: '\1- {{ kitanda_logs_dir }}:{{ kitanda_logs_old_dir }}:ro\n\1- {{ kitanda_logs_dir }}/promtail:/tmp/promtail'
+    - regexp: '^(\s*)- {{ kitanda_logs_old_dir }}:{{ kitanda_logs_old_dir }}[ \t]*$'
+      replace: '\1- {{ kitanda_logs_dir }}:{{ kitanda_logs_old_dir }}'
+  loop_control:
+    label: "{{ item.regexp }}"
+  notify: Recreate log services
+
+- name: Persistir positions do Promtail
+  ansible.builtin.replace:
+    path: "{{ kitanda_logs_promtail_config }}"
+    regexp: '^(\s*filename:\s*)/tmp/positions\.yaml[ \t]*$'
+    replace: '\1/tmp/promtail/positions.yaml'
+  when: kitanda_logs_promtail_config | length > 0
+  notify: Recreate log services
+
+- name: Validar sintaxe do compose
+  ansible.builtin.command: docker compose config -q
+  args:
+    chdir: "{{ kitanda_logs_compose_dir }}"
+  changed_when: false
+  check_mode: false

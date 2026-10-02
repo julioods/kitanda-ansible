@@ -1,0 +1,10 @@
+---
+- name: Criar diretórios de log
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ kitanda_logs_dir }}"
+    - "{{ kitanda_logs_dir }}/nginx"
+    - "{{ kitanda_logs_dir }}/promtail"

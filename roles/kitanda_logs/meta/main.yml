@@ -1,0 +1,10 @@
+---
+galaxy_info:
+  author: julio
+  description: Move logs do Kitanda para fora do filesystem de dados e configura logrotate/Promtail
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions: [all]
+dependencies: []

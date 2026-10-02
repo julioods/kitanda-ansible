@@ -1,0 +1,30 @@
+---
+- name: Verificar se o compose existe
+  ansible.builtin.stat:
+    path: "{{ kitanda_logs_compose_dir }}/{{ kitanda_logs_compose_file }}"
+  register: kitanda_logs_compose_stat
+
+- name: Garantir que o compose existe
+  ansible.builtin.assert:
+    that: kitanda_logs_compose_stat.stat.exists
+    fail_msg: "Compose não encontrado em {{ kitanda_logs_compose_dir }}/{{ kitanda_logs_compose_file }}"
+
+- name: Medir tamanho dos logs antigos
+  ansible.builtin.command: du -sb {{ kitanda_logs_old_dir }}
+  register: kitanda_logs_old_size
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Medir espaço livre no destino
+  ansible.builtin.command: df --output=avail -B1 /var/log
+  register: kitanda_logs_free
+  changed_when: false
+  check_mode: false
+
+- name: Garantir espaço suficiente para a cópia
+  ansible.builtin.assert:
+    that:
+      - (kitanda_logs_free.stdout_lines[-1] | int) > ((kitanda_logs_old_size.stdout.split() | first | default(0) | int) * (kitanda_logs_space_margin | float))
+    fail_msg: "Espaço insuficiente em /var/log para copiar os logs de {{ kitanda_logs_old_dir }}"
+  when: kitanda_logs_migrate | bool

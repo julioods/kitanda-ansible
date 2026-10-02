@@ -1,0 +1,31 @@
+---
+- name: Verificar backup do compose
+  ansible.builtin.stat:
+    path: "{{ kitanda_logs_compose_dir }}/{{ kitanda_logs_compose_file }}.bkp"
+  register: kitanda_logs_bkp
+
+- name: Garantir que o backup existe
+  ansible.builtin.assert:
+    that: kitanda_logs_bkp.stat.exists
+    fail_msg: "Backup do compose não encontrado"
+
+- name: Restaurar compose original
+  ansible.builtin.copy:
+    src: "{{ kitanda_logs_compose_dir }}/{{ kitanda_logs_compose_file }}.bkp"
+    dest: "{{ kitanda_logs_compose_dir }}/{{ kitanda_logs_compose_file }}"
+    remote_src: true
+    mode: preserve
+
+- name: Validar compose restaurado
+  ansible.builtin.command: docker compose config -q
+  args:
+    chdir: "{{ kitanda_logs_compose_dir }}"
+  changed_when: false
+
+# Atenção: se o conteúdo antigo de kitanda_logs_old_dir já foi limpo, copie os
+# logs de kitanda_logs_dir de volta antes de recriar os serviços.
+- name: Recriar serviços com a configuração antiga
+  ansible.builtin.command: docker compose up -d --force-recreate {{ kitanda_logs_services | join(' ') }}
+  args:
+    chdir: "{{ kitanda_logs_compose_dir }}"
+  changed_when: true

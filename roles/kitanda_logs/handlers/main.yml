@@ -1,0 +1,6 @@
+---
+- name: Recreate log services
+  ansible.builtin.command: docker compose up -d --force-recreate {{ kitanda_logs_services | join(' ') }}
+  args:
+    chdir: "{{ kitanda_logs_compose_dir }}"
+  changed_when: true

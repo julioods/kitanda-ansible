@@ -1,0 +1,51 @@
+---
+- name: Consultar containers em execução
+  ansible.builtin.command: docker ps -q --filter status=running --filter name=^{{ item }}$
+  loop: "{{ kitanda_logs_containers }}"
+  register: kitanda_logs_running
+  changed_when: false
+
+- name: Garantir que os containers estão rodando
+  ansible.builtin.assert:
+    that: item.stdout | length > 0
+    fail_msg: "Container {{ item.item }} não está em execução"
+  loop: "{{ kitanda_logs_running.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Verificar log do Nginx no novo caminho
+  ansible.builtin.stat:
+    path: "{{ kitanda_logs_dir }}/nginx/access.log"
+  register: kitanda_logs_access
+
+- name: Garantir que o access.log existe no novo caminho
+  ansible.builtin.assert:
+    that: kitanda_logs_access.stat.exists
+
+- name: Contar erros 429 do Promtail na janela recente
+  ansible.builtin.shell: |
+    set -o pipefail
+    docker logs --since {{ kitanda_logs_promtail_window }} {{ kitanda_logs_promtail_container }} 2>&1 | grep -c 'Too Many Requests' || true
+  args:
+    executable: /bin/bash
+  register: kitanda_logs_429
+  changed_when: false
+
+- name: Garantir ausência de 429
+  ansible.builtin.assert:
+    that: (kitanda_logs_429.stdout | trim | int) == 0
+    fail_msg: "Promtail com {{ kitanda_logs_429.stdout | trim }} erros 429 nos últimos {{ kitanda_logs_promtail_window }}"
+
+- name: Medir uso do filesystem de dados
+  ansible.builtin.shell: |
+    set -o pipefail
+    df --output=pcent {{ kitanda_logs_data_mount }} | tail -1 | tr -dc 0-9
+  args:
+    executable: /bin/bash
+  register: kitanda_logs_data_use
+  changed_when: false
+
+- name: Garantir uso de disco abaixo do limite
+  ansible.builtin.assert:
+    that: (kitanda_logs_data_use.stdout | int) < (kitanda_logs_data_max_use_pct | int)
+    fail_msg: "{{ kitanda_logs_data_mount }} em {{ kitanda_logs_data_use.stdout }}% (limite {{ kitanda_logs_data_max_use_pct }}%)"
